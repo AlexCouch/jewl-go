@@ -1,6 +1,9 @@
 package jewl
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
 	"runtime"
 	"time"
 
@@ -8,13 +11,13 @@ import (
 )
 
 type Frame struct{
-    uid         uuid.UUID
-    name        string
-    start       time.Time
-    end         time.Time
-    duration    time.Duration
-    args        map[string]any
-    subframes   []*Frame
+    Uid         uuid.UUID       `json:"uuid"`
+    Name        string          `json:"name"`
+    Start       time.Time       `json:"start"`
+    End         time.Time       `json:"end"`
+    Duration    time.Duration   `json:"duration"`
+    Args        map[string]any  `json:"args"`
+    Subframes   []*Frame        `json:"subframes"`
 }
 
 type Profiler struct{
@@ -38,11 +41,11 @@ func newFrame() *Frame{
     start_time := time.Now()
     frame_name := getFrameName()
     return &Frame{
-        uid:    uuid.New(),
-        name:   frame_name,
-        start:  start_time,
-        args: map[string]any{},
-        subframes: []*Frame{},
+        Uid:    uuid.New(),
+        Name:   frame_name,
+        Start:  start_time,
+        Args: map[string]any{},
+        Subframes: []*Frame{},
     }
 }
 
@@ -62,19 +65,42 @@ func (self *Profiler) StartFrame() *Frame{
 func (frame *Frame) Subframe() *Frame{
     subframe := newFrame()
     G_Profiler.current = subframe
-    frame.subframes = append(frame.subframes, subframe)
+    frame.Subframes = append(frame.Subframes, subframe)
     return subframe
 }
 
 func (frame *Frame) AddArg(name string, arg any){
-    frame.args[name] = arg
+    frame.Args[name] = arg
 }
 
 func (frame *Frame) Stop(){
-    frame.end = time.Now()
-    frame.duration = frame.end.Sub(frame.start)
+    frame.End = time.Now()
+    frame.Duration = frame.End.Sub(frame.Start)
 }
 
-func (self *Profiler) Dump(outPath string) {
+func (self *Profiler) Dump(outPath string) error {
     //TODO: Need to find a good compact serialization format
+    f, err := os.OpenFile(outPath, os.O_CREATE|os.O_RDWR, 0666)
+    defer f.Close()
+    if err != nil{
+        return err
+    }
+    fmt.Println(f)
+    data, err := json.Marshal(self.topFrame)
+    if err != nil{
+        return err
+    }
+    count, err := f.Write(data)
+    if err != nil{
+        return err
+    }
+    if count < len(data){
+        for count != 0{
+            count, err = f.Write(data)
+            if err != nil{
+                return err
+            }
+        }
+    }
+    return nil
 }
