@@ -32,17 +32,17 @@ var G_Profiler Profiler = Profiler{
 
 func getFrameName() string{
     pc := make([]uintptr, 10)
-    runtime.Callers(2, pc)
-    f := runtime.FuncForPC(pc[0])
-    return f.Name()
+    n := runtime.Callers(3, pc)
+    frames := runtime.CallersFrames(pc[:n])
+    frame, _ := frames.Next()
+    return frame.Function
 }
 
-func newFrame() *Frame{
+func newFrame(name string) *Frame{
     start_time := time.Now()
-    frame_name := getFrameName()
     return &Frame{
         Uid:    uuid.New(),
-        Name:   frame_name,
+        Name:   name,
         Start:  start_time,
         Args: map[string]any{},
         Subframes: []*Frame{},
@@ -54,16 +54,19 @@ func (self *Profiler) Current() *Frame{
 }
 
 func (self *Profiler) StartFrame() *Frame{
-    frame := newFrame()    
+    name := getFrameName()
+    frame := newFrame(name)    
     if self.topFrame == nil{
         self.topFrame = frame
+    }else{
+        self.topFrame.Subframes = append(self.topFrame.Subframes, frame)
     }
     self.current = frame
     return frame
 }
 
-func (frame *Frame) Subframe() *Frame{
-    subframe := newFrame()
+func (frame *Frame) Subframe(name string) *Frame{
+    subframe := newFrame(name)
     G_Profiler.current = subframe
     frame.Subframes = append(frame.Subframes, subframe)
     return subframe

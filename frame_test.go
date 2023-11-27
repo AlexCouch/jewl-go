@@ -7,15 +7,15 @@ import (
 )
 
 func bubbleSort(data []uint16) []uint16{
-    frame := G_Profiler.Current().Subframe()
+    frame := G_Profiler.StartFrame()
     defer frame.Stop()
 
     frame.AddArg("data", data)
     for i := 0; i < len(data); i++{
-        outer_loop := frame.Subframe()
+        outer_loop := frame.Subframe("outer_loop")
         outer_loop.AddArg("i", i)
         for j := 0; j < len(data); j++{
-            inner_loop := outer_loop.Subframe()
+            inner_loop := outer_loop.Subframe("inner_loop")
             inner_loop.AddArg("j", j)
             inner_loop.AddArg("data[j]", data[j])
             inner_loop.AddArg("j+1", j+1)
