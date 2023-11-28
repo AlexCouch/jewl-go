@@ -7,7 +7,7 @@ import (
 )
 
 func bubbleSort(data []uint16) []uint16{
-    frame := G_Profiler.StartFrame()
+    frame := G_Profiler.StartFrame("bubbleSort")
     defer frame.Stop()
 
     frame.AddArg("data", data)
@@ -36,7 +36,7 @@ func bubbleSort(data []uint16) []uint16{
 }
 
 func TestFrame(t *testing.T){
-    frame := G_Profiler.StartFrame()
+    frame := G_Profiler.StartFrame("TestFrame")
     sorted := bubbleSort([]uint16{5, 1, 6, 4, 3, 7, 8, 9})
     expected := []uint16{1, 3, 4, 5, 6, 7, 8, 9}
     if !reflect.DeepEqual(expected, sorted){

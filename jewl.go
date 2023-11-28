@@ -38,7 +38,7 @@ func getFrameName() string{
     return frame.Function
 }
 
-func NewFrame(name string) *Frame{
+func newFrame(name string) *Frame{
     start_time := time.Now()
     return &Frame{
         Uid:    uuid.New(),
@@ -53,9 +53,9 @@ func (self *Profiler) Current() *Frame{
     return self.current
 }
 
-func (self *Profiler) StartFrame() *Frame{
-    name := getFrameName()
-    frame := NewFrame(name)    
+func (self *Profiler) StartFrame(name string) *Frame{
+    //name := getFrameName()
+    frame := newFrame(name)    
     if self.topFrame == nil{
         self.topFrame = frame
     }else{
@@ -66,7 +66,7 @@ func (self *Profiler) StartFrame() *Frame{
 }
 
 func (frame *Frame) Subframe(name string) *Frame{
-    subframe := NewFrame(name)
+    subframe := newFrame(name)
     G_Profiler.current = subframe
     frame.Subframes = append(frame.Subframes, subframe)
     return subframe
