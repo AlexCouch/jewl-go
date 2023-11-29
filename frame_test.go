@@ -6,16 +6,25 @@ import (
 	"testing"
 )
 
-func bubbleSort(data []uint16) []uint16{
-    frame := G_Profiler.StartFrame("bubbleSort")
-    defer frame.Stop()
+func bubbleSort(data []uint16) ([]uint16, error){
+    rec, err := GetRecorder(JewlConfig)
+    if err != nil{
+        panic(err)
+    }
+    frame, err := rec.Function()
 
     frame.AddArg("data", data)
     for i := 0; i < len(data); i++{
-        outer_loop := frame.Subframe("outer_loop")
+        outer_loop, err := rec.Frame("outer_loop")
+        if err != nil{
+            return []uint16{}, err
+        }
         outer_loop.AddArg("i", i)
         for j := 0; j < len(data); j++{
-            inner_loop := outer_loop.Subframe("inner_loop")
+            inner_loop, err := rec.Frame("inner_loop")
+            if err != nil{
+                return []uint16{}, err
+            }
             inner_loop.AddArg("j", j)
             inner_loop.AddArg("data[j]", data[j])
             inner_loop.AddArg("j+1", j+1)
@@ -32,19 +41,40 @@ func bubbleSort(data []uint16) []uint16{
         }
         outer_loop.Stop()
     }
-    return data
+    return data, nil
 }
 
+const FileLocation = "test.json"
+var JewlConfig = FileConfig(FileLocation)
+
 func TestFrame(t *testing.T){
-    frame := G_Profiler.StartFrame("TestFrame")
-    sorted := bubbleSort([]uint16{5, 1, 6, 4, 3, 7, 8, 9})
+    rec, err := GetRecorder(JewlConfig)
+    if err != nil{
+        panic(err)
+    }
+    frame, err := rec.Function()
+    sorted, err := bubbleSort([]uint16{5, 1, 6, 4, 3, 7, 8, 9})
+    if err != nil{
+        panic(err)
+    }
+    
     expected := []uint16{1, 3, 4, 5, 6, 7, 8, 9}
     if !reflect.DeepEqual(expected, sorted){
         fmt.Println(fmt.Sprintf("Sort result is not as expected: %s", fmt.Sprint(sorted)))
     }
     frame.Stop()
-    err := G_Profiler.Dump("dump.json")
-    if err != nil{
-        panic(err)
-    }
+    fmt.Println(fmt.Sprint(frame))
 }
+//func TestFrame(t *testing.T){
+//    frame := G_Profiler.StartFrame("TestFrame")
+//    sorted := bubbleSort([]uint16{5, 1, 6, 4, 3, 7, 8, 9})
+//    expected := []uint16{1, 3, 4, 5, 6, 7, 8, 9}
+//    if !reflect.DeepEqual(expected, sorted){
+//        fmt.Println(fmt.Sprintf("Sort result is not as expected: %s", fmt.Sprint(sorted)))
+//    }
+//    frame.Stop()
+//    err := G_Profiler.Dump("dump.json")
+//    if err != nil{
+//        panic(err)
+//    }
+//}

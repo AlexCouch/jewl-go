@@ -10,19 +10,19 @@ import (
 	"github.com/google/uuid"
 )
 
-type Frame struct{
+type OldFrame struct{
     Uid         uuid.UUID       `json:"uuid"`
     Name        string          `json:"name"`
     Start       time.Time       `json:"start"`
     End         time.Time       `json:"end"`
     Duration    time.Duration   `json:"duration"`
     Args        map[string]any  `json:"args"`
-    Subframes   []*Frame        `json:"subframes"`
+    Subframes   []*OldFrame        `json:"subframes"`
 }
 
 type Profiler struct{
-    topFrame   *Frame
-    current    *Frame
+    topFrame   *OldFrame
+    current    *OldFrame
 }
 
 var G_Profiler Profiler = Profiler{
@@ -38,22 +38,22 @@ func getFrameName() string{
     return frame.Function
 }
 
-func newFrame(name string) *Frame{
+func newFrame(name string) *OldFrame{
     start_time := time.Now()
-    return &Frame{
+    return &OldFrame{
         Uid:    uuid.New(),
         Name:   name,
         Start:  start_time,
         Args: map[string]any{},
-        Subframes: []*Frame{},
+        Subframes: []*OldFrame{},
     }
 }
 
-func (self *Profiler) Current() *Frame{
+func (self *Profiler) Current() *OldFrame{
     return self.current
 }
 
-func (self *Profiler) StartFrame(name string) *Frame{
+func (self *Profiler) StartFrame(name string) *OldFrame{
     //name := getFrameName()
     frame := newFrame(name)    
     if self.topFrame == nil{
@@ -65,18 +65,18 @@ func (self *Profiler) StartFrame(name string) *Frame{
     return frame
 }
 
-func (frame *Frame) Subframe(name string) *Frame{
+func (frame *OldFrame) Subframe(name string) *OldFrame{
     subframe := newFrame(name)
     G_Profiler.current = subframe
     frame.Subframes = append(frame.Subframes, subframe)
     return subframe
 }
 
-func (frame *Frame) AddArg(name string, arg any){
+func (frame *OldFrame) AddArg(name string, arg any){
     frame.Args[name] = arg
 }
 
-func (frame *Frame) Stop(){
+func (frame *OldFrame) Stop(){
     frame.End = time.Now()
     frame.Duration = frame.End.Sub(frame.Start)
 }
