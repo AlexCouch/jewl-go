@@ -11,35 +11,35 @@ func bubbleSort(data []uint16) ([]uint16, error){
     if err != nil{
         panic(err)
     }
-    frame, err := rec.Function()
+    err = rec.Frame("bubbleSort")
 
-    frame.AddArg("data", data)
+    rec.AddData("data", data)
     for i := 0; i < len(data); i++{
-        outer_loop, err := rec.Frame("outer_loop")
+        err = rec.Frame("outer_loop")
         if err != nil{
             return []uint16{}, err
         }
-        outer_loop.AddArg("i", i)
+        rec.AddData("i", i)
         for j := 0; j < len(data); j++{
-            inner_loop, err := rec.Frame("inner_loop")
+            err = rec.Frame("inner_loop")
             if err != nil{
                 return []uint16{}, err
             }
-            inner_loop.AddArg("j", j)
-            inner_loop.AddArg("data[j]", data[j])
-            inner_loop.AddArg("j+1", j+1)
+            rec.AddData("j", j)
+            rec.AddData("data[j]", data[j])
+            rec.AddData("j+1", j+1)
             if j + 1 >= len(data){
                 continue
             }
-            inner_loop.AddArg("data[j+1]", data[j+1])
+            rec.AddData("data[j+1]", data[j+1])
             if data[j] > data[j + 1]{
                 temp := data[j]
                 data[j] = data[j+1]
                 data[j+1] = temp
             }
-            inner_loop.Stop()
+            rec.Stop()
         }
-        outer_loop.Stop()
+        rec.Stop()
     }
     return data, nil
 }
@@ -52,7 +52,7 @@ func TestFrame(t *testing.T){
     if err != nil{
         panic(err)
     }
-    frame, err := rec.Function()
+    err = rec.Frame("TestFrame")
     sorted, err := bubbleSort([]uint16{5, 1, 6, 4, 3, 7, 8, 9})
     if err != nil{
         panic(err)
@@ -62,8 +62,7 @@ func TestFrame(t *testing.T){
     if !reflect.DeepEqual(expected, sorted){
         fmt.Println(fmt.Sprintf("Sort result is not as expected: %s", fmt.Sprint(sorted)))
     }
-    frame.Stop()
-    fmt.Println(fmt.Sprint(frame))
+    rec.Stop()
 }
 //func TestFrame(t *testing.T){
 //    frame := G_Profiler.StartFrame("TestFrame")

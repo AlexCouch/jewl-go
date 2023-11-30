@@ -13,6 +13,7 @@ func (f RecorderConfigFile) Write(data []byte) error{
             return err
         }
     }
+    println("Writing recorder to " + f.path)
     err := os.WriteFile(f.path, data, 0666)
     if err != nil{
         return err
