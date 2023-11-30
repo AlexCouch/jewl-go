@@ -3,44 +3,127 @@ package jewl
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"runtime"
 	"time"
 )
 
+//A configuration interface which allows for creating different configuration 
+// schemas such as emitting frames to a server or a file
 type RecorderConfig interface{
+    //Load the current state of the recorder
     Load() ([]byte, error)
+    //Write the current state of the recorder
     Write([]byte) error
+}
+
+//A stack cache to save the state of the stack so the recorder can keep track of
+// where in the code the program is.
+//
+// This makes it easier for different functions to add new frames to the hierarchy
+type RecorderCache struct{
+    path string
+}
+
+//Save the stack to the given cache path
+func (r *RecorderCache) Save(stack []int) error{
+    if _, err := os.Stat(r.path); err != nil{
+        _, err := os.Create(r.path)
+        if err != nil{
+            return err
+        }
+    }
+    data, err := json.Marshal(stack)
+    if err != nil{
+        return err
+    }
+    err = os.WriteFile(r.path, data, 0666)
+    if err != nil{
+        return err
+    }
+    return nil
+}
+
+//Load the cache from the given cache path
+func (r *RecorderCache) Load() ([]int, error){
+    var stack []int
+    if _, err := os.Stat(r.path); err != nil{
+        _, err := os.Create(r.path)
+        if err != nil{
+            return stack, err
+        }
+    }
+    data, err := os.ReadFile(r.path)
+    if err != nil{
+        return stack, err
+    }
+    if len(data) == 0{
+        return stack, nil
+    }
+    err = json.Unmarshal(data, &stack)
+    if err != nil{
+        return stack, err
+    }
+    return stack, nil
 }
 
 type location = string
 
+//A frame recorder which keeps track of where in the program it is,
+//  and allows for creating new frames, which are saved via the config
+//
+//The stack is the current call stack which is used for adding frames as either
+//  function call frames or subframes within the same function
+//
+//The Header is simply a reference table of locations and indices of new function Frames
+//
+//The Frames slice is simply all the frames, regardless of locations. 
+//  A new function frame is referred to in the Header
+//  A subframe is referred to in a frame's Subframes slice
+//
+//See also: Frame
 type Recorder struct{
     config      RecorderConfig
+    cache       RecorderCache
     stack       []FrameIndex
     Header      map[location]FrameIndex `json:"header"`
     Frames      []*Frame                `json:"frames"`
 }
 
+//Creates a new recorder using the given config, and load the current stack cache,
+//  and frames saved from other instances
 func GetRecorder(config RecorderConfig) (*Recorder, error){
     rec := Recorder{
+        cache: RecorderCache{
+            path: "cache.json",
+        },
         config: config,
-        Header: map[location]FrameIndex{},
-        Frames: []*Frame{},
     }
-    data, err := rec.config.Load()
+    //Load the stack
+    stack, err := rec.cache.Load()
     if err != nil{
         return nil, err
     }
-    var frame Frame
+    rec.stack = stack
+
+    //Load the current data via the config
+    data, err := rec.config.Load()
+    if err != nil{
+        
+        return nil, err
+    }
     if len(data) == 0{
         //Early return because there's nothing to append the next frames onto
         //We are starting fresh
+        rec.Frames = []*Frame{}
+        rec.Header = map[string]FrameIndex{}
         return &rec, nil
     }
-    err = json.Unmarshal(data, &frame)
+    err = json.Unmarshal(data, &rec)
     if err != nil{
         return nil, err
     }
+    println(rec.Frames)
     return &rec, nil
 }
 
@@ -64,6 +147,7 @@ type recorderError struct{
     name    string
 }
 
+//Create a general Recorder Error with a message, location, and frame name
 func RecorderError(message string, loc string, name string) recorderError{
     return recorderError{
         message: message,
@@ -118,6 +202,10 @@ func (r *Recorder) Frame(name string) error{
         if err != nil{
             panic(err)
         }
+        err = r.cache.Save(r.stack)
+        if err != nil{
+            panic(err)
+        }
     }()
     //If there are no frames on the stack (like at the start of the main function),
     // then add a new frame to the Frames, Header, and stack
@@ -134,6 +222,7 @@ func (r *Recorder) Frame(name string) error{
     fidx := r.stack[len(r.stack)-1]
     frame := r.Frames[fidx]
     r.Frames = append(r.Frames, sub)
+    r.stack = append(r.stack, fidx+1)
     if frame.Location == loc{
         println(loc + ": New frame is not a new function: adding as a subframe")
         //This is a subframe since the locations are the same
@@ -161,5 +250,9 @@ func (r *Recorder) Stop() error{
     frame.Duration = end - frame.Start
 
     r.stack = r.stack[:len(r.stack) - 1]
+    err := r.cache.Save(r.stack)
+    if err != nil{
+        return err
+    }
     return nil
 }

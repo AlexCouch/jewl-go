@@ -2,6 +2,9 @@ package jewl
 
 import "os"
 
+//A file config schema which simply saves the frames to a local file on the machine
+//
+//See also: RecorderConfig
 type RecorderConfigFile struct{
     path string
 }

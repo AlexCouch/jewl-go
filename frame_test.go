@@ -41,6 +41,7 @@ func bubbleSort(data []uint16) ([]uint16, error){
         }
         rec.Stop()
     }
+    rec.Stop()
     return data, nil
 }
 
