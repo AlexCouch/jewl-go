@@ -254,5 +254,13 @@ func (r *Recorder) Stop() error{
     if err != nil{
         return err
     }
+    data, err := json.Marshal(r)
+    if err != nil{
+        return err
+    }
+    err = r.config.Write(data)
+    if err != nil{
+        return err
+    }
     return nil
 }
