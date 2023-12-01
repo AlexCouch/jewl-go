@@ -132,7 +132,6 @@ func GetRecorder(config RecorderConfig) (*Recorder, error){
     if err != nil{
         return nil, err
     }
-    println(fmt.Sprint(rec.stack))
     return &rec, nil
 }
 
@@ -282,7 +281,7 @@ func (r *Recorder) Frame(name string) error{
         //The locations are different, so therefore, this is a called function
         frame.Calls = append(frame.Calls, fidx+1)
         //This is now a new function, therefore, must be in the header
-        r.Header[loc] = fidx
+        r.Header[loc] = fidx+1
     }
 
     return nil
@@ -306,6 +305,5 @@ func (r *Recorder) Stop() error{
     frame.Duration = end - frame.Start
 
     r.stack = r.stack[:len(r.stack) - 1]
-    println(fmt.Sprint(r.stack))
     return nil
 }
