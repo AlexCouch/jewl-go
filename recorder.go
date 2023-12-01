@@ -273,15 +273,16 @@ func (r *Recorder) Frame(name string) error{
     fidx := r.stack[len(r.stack)-1]
     frame := r.Frames[fidx]
     r.Frames = append(r.Frames, sub)
-    r.stack = append(r.stack, fidx+1)
+    sidx := len(r.Frames)-1
+    r.stack = append(r.stack, sidx)
     if frame.Location == loc{
         //This is a subframe since the locations are the same
-        frame.Subframes = append(frame.Subframes, fidx)
+        frame.Subframes = append(frame.Subframes, sidx)
     }else{
         //The locations are different, so therefore, this is a called function
-        frame.Calls = append(frame.Calls, fidx+1)
+        frame.Calls = append(frame.Calls, sidx)
         //This is now a new function, therefore, must be in the header
-        r.Header[loc] = fidx+1
+        r.Header[loc] = sidx
     }
 
     return nil

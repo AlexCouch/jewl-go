@@ -12,26 +12,24 @@ func bubbleSort(data []uint16) ([]uint16, error){
         panic(err)
     }
     err = rec.Frame("bubbleSort")
-    defer rec.Stop()
 
     rec.AddData("data", data)
     for i := 0; i < len(data); i++{
         err = rec.Frame("outer_loop")
-        defer rec.Stop()
         if err != nil{
-            return []uint16{}, err
+            panic(err)
         }
         rec.AddData("i", i)
         for j := 0; j < len(data); j++{
             err = rec.Frame("inner_loop")
-            defer rec.Stop()
             if err != nil{
-                return []uint16{}, err
+                panic(err)
             }
             rec.AddData("j", j)
             rec.AddData("data[j]", data[j])
             rec.AddData("j+1", j+1)
             if j + 1 >= len(data){
+                rec.Stop()
                 continue
             }
             rec.AddData("data[j+1]", data[j+1])
@@ -40,8 +38,11 @@ func bubbleSort(data []uint16) ([]uint16, error){
                 data[j] = data[j+1]
                 data[j+1] = temp
             }
+            rec.Stop()
         }
+        rec.Stop()
     }
+    rec.Stop()
     return data, nil
 }
 
