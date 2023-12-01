@@ -9,6 +9,10 @@ type RecorderConfigFile struct{
     path string
 }
 
+func (f RecorderConfigFile) Clear() error{
+    return os.Remove(f.path)
+
+}
 func (f RecorderConfigFile) Write(data []byte) error{
     if _, err := os.Stat(f.path); err != nil{
         _, err := os.Create(f.path)
@@ -16,7 +20,6 @@ func (f RecorderConfigFile) Write(data []byte) error{
             return err
         }
     }
-    println("Writing recorder to " + f.path)
     err := os.WriteFile(f.path, data, 0666)
     if err != nil{
         return err

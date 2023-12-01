@@ -15,6 +15,8 @@ type RecorderConfig interface{
     Load() ([]byte, error)
     //Write the current state of the recorder
     Write([]byte) error
+    //Clears the current project state, if applicable
+    Clear() error
 }
 
 //A stack cache to save the state of the stack so the recorder can keep track of
@@ -23,6 +25,13 @@ type RecorderConfig interface{
 // This makes it easier for different functions to add new frames to the hierarchy
 type RecorderCache struct{
     path string
+}
+
+func (r *RecorderCache) Clear() error{
+    if _, err := os.Stat(r.path); err == nil{
+        return os.Remove(r.path)
+    }
+    return nil
 }
 
 //Save the stack to the given cache path
@@ -90,6 +99,26 @@ type Recorder struct{
     Frames      []*Frame                `json:"frames"`
 }
 
+func NewRecorder(config RecorderConfig) (*Recorder, error){
+    rec := Recorder{
+        cache: RecorderCache{
+            path: "cache.json",
+        },
+        config: config,
+        Header: map[string]int{},
+        Frames: []*Frame{},
+    }
+    err := rec.cache.Clear()
+    if err != nil{
+        return nil, err
+    }
+    err = config.Clear()
+    if err != nil{
+        return nil, err
+    }
+    return &rec, nil
+}
+
 //Creates a new recorder using the given config, and load the current stack cache,
 //  and frames saved from other instances
 func GetRecorder(config RecorderConfig) (*Recorder, error){
@@ -99,32 +128,21 @@ func GetRecorder(config RecorderConfig) (*Recorder, error){
         },
         config: config,
     }
-    //Load the stack
-    stack, err := rec.cache.Load()
+    err := rec.loadState()
     if err != nil{
         return nil, err
     }
-    rec.stack = stack
-
-    //Load the current data via the config
-    data, err := rec.config.Load()
-    if err != nil{
-        
-        return nil, err
-    }
-    if len(data) == 0{
-        //Early return because there's nothing to append the next frames onto
-        //We are starting fresh
-        rec.Frames = []*Frame{}
-        rec.Header = map[string]FrameIndex{}
-        return &rec, nil
-    }
-    err = json.Unmarshal(data, &rec)
-    if err != nil{
-        return nil, err
-    }
-    println(rec.Frames)
+    println(fmt.Sprint(rec.stack))
     return &rec, nil
+}
+
+func (r *Recorder) Close() error{
+    path := r.cache.path
+    err := os.Remove(path)
+    if err != nil{
+        return err
+    }
+    return nil
 }
 
 /**
@@ -172,6 +190,54 @@ func (r *Recorder) AddData(name string, val any) error{
     frame := r.Frames[fidx]
     frame.Args[name] = val
 
+    r.saveState()
+
+    return nil
+}
+
+func (r *Recorder) saveState() {
+    data, err := json.MarshalIndent(r, "", "    ")
+    if err != nil{
+        panic(err)
+    }
+    err = r.config.Write(data)
+    if err != nil{
+        panic(err)
+    }
+    err = r.cache.Save(r.stack)
+    if err != nil{
+        panic(err)
+    }
+}
+
+func (r *Recorder) loadState() error {
+    data, err := r.config.Load()
+    if err != nil{
+        top := r.stack[len(r.stack)-1]
+        frame := r.Frames[top]
+        return RecorderError("Attempted to load current frame data from save state but failed", frame.Location, frame.Name)
+    }
+    if len(data) == 0{
+        //Early return because there's nothing to append the next frames onto
+        r.Frames = []*Frame{}
+        r.Header = map[string]int{}
+        return nil
+    }
+    var rr Recorder
+    err = json.Unmarshal(data, &rr)
+    if err != nil{
+        top := r.stack[len(r.stack)-1]
+        frame := r.Frames[top]
+        return RecorderError("Attempted to load current frame data from save state but failed", frame.Location, frame.Name)
+    }
+    r.Frames = rr.Frames
+    r.Header = rr.Header
+
+    stack, err := r.cache.Load()
+    if err != nil{
+        return err
+    }
+    r.stack = stack
     return nil
 }
 
@@ -193,24 +259,10 @@ func (r *Recorder) Frame(name string) error{
         Calls: []FrameIndex{},
         Subframes: []FrameIndex{},
     }
-    defer func(){
-        data, err := json.Marshal(r)
-        if err != nil{
-            panic(err)
-        }
-        err = r.config.Write(data)
-        if err != nil{
-            panic(err)
-        }
-        err = r.cache.Save(r.stack)
-        if err != nil{
-            panic(err)
-        }
-    }()
+    defer r.saveState()
     //If there are no frames on the stack (like at the start of the main function),
     // then add a new frame to the Frames, Header, and stack
     if len(r.stack) == 0{
-        println(loc + ": Stack is empty, adding the first frame")
         r.Frames = append(r.Frames, sub)
         sidx := len(r.Frames)-1
         r.Header[loc] = sidx
@@ -224,11 +276,9 @@ func (r *Recorder) Frame(name string) error{
     r.Frames = append(r.Frames, sub)
     r.stack = append(r.stack, fidx+1)
     if frame.Location == loc{
-        println(loc + ": New frame is not a new function: adding as a subframe")
         //This is a subframe since the locations are the same
         frame.Subframes = append(frame.Subframes, fidx)
     }else{
-        println(loc + ": New frame is a new function: adding as a call")
         //The locations are different, so therefore, this is a called function
         frame.Calls = append(frame.Calls, fidx+1)
         //This is now a new function, therefore, must be in the header
@@ -244,23 +294,18 @@ func (r *Recorder) Frame(name string) error{
 */
 func (r *Recorder) Stop() error{
     end := time.Now().Nanosecond()
+    defer r.saveState()
+    err := r.loadState()
+    if err != nil{
+        return err
+    }
+
     fidx := r.stack[len(r.stack)-1]
     frame := r.Frames[fidx]
     frame.End = end
     frame.Duration = end - frame.Start
 
     r.stack = r.stack[:len(r.stack) - 1]
-    err := r.cache.Save(r.stack)
-    if err != nil{
-        return err
-    }
-    data, err := json.Marshal(r)
-    if err != nil{
-        return err
-    }
-    err = r.config.Write(data)
-    if err != nil{
-        return err
-    }
+    println(fmt.Sprint(r.stack))
     return nil
 }
