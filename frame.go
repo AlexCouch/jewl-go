@@ -12,12 +12,12 @@ type FrameIndex = int
 //When a frame is on the top of the stack, and a new function creates a frame,
 // that funtion's frame is added here as a `Call`
 type Frame struct{
-    Location    string          `json:"location"`
-    Name        string          `json:"name"`
-    Args        map[string]any  `json:"args"`
-    Start       int             `json:"start"`
-    End         int             `json:"end"`
-    Duration    int             `json:"duration"`
-    Calls       []FrameIndex    `json:"calls"`
-    Subframes   []FrameIndex    `json:"subframes"`
+    Location    string          `msgpack:"location"`
+    Name        string          `msgpack:"name"`
+    Args        map[string]any  `msgpack:"args"`
+    Start       int             `msgpack:"start"`
+    End         int             `msgpack:"end"`
+    Duration    int             `msgpack:"duration"`
+    Calls       []FrameIndex    `msgpack:"calls"`
+    Subframes   []FrameIndex    `msgpack:"subframes"`
 }
