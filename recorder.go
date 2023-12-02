@@ -115,8 +115,8 @@ type Recorder struct {
 	config RecorderConfig
 	cache  RecorderCache
 	stack  []FrameIndex
-	Header map[location]FrameIndex `msgpack:"header"`
-	Frames []*Frame                `msgpack:"frames"`
+	Header map[location][]FrameIndex    `msgpack:"header"`
+	Frames []*Frame                     `msgpack:"frames"`
 }
 
 const JewlDir string = ".jewl"
@@ -127,7 +127,7 @@ func NewRecorder(config RecorderConfig) (*Recorder, error) {
 			path: path.Join(JewlDir, "cache"),
 		},
 		config: config,
-		Header: map[string]int{},
+		Header: map[string][]FrameIndex{},
 		Frames: []*Frame{},
 	}
 	err := rec.cache.Clear()
@@ -242,7 +242,7 @@ func (r *Recorder) loadState() error {
 	if len(data) == 0 {
 		// Early return because there's nothing to append the next frames onto
 		r.Frames = []*Frame{}
-		r.Header = map[string]int{}
+		r.Header = map[string][]FrameIndex{}
 		return nil
 	}
 	var rr Recorder
@@ -290,7 +290,7 @@ func (r *Recorder) Frame(name string) error {
 	if len(r.stack) == 0 {
 		r.Frames = append(r.Frames, sub)
 		sidx := len(r.Frames) - 1
-		r.Header[loc] = sidx
+		r.Header[loc] = append(r.Header[loc], sidx)
 		r.stack = append(r.stack, sidx)
 		return nil
 	}
@@ -308,7 +308,7 @@ func (r *Recorder) Frame(name string) error {
 		// The locations are different, so therefore, this is a called function
 		frame.Calls = append(frame.Calls, sidx)
 		// This is now a new function, therefore, must be in the header
-		r.Header[loc] = sidx
+		r.Header[loc] = append(r.Header[loc], sidx)
 	}
 
 	return nil

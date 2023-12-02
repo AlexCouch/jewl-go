@@ -2,11 +2,12 @@ package jewl
 
 import (
 	"fmt"
+	"math/rand"
 	"reflect"
 	"testing"
 )
 
-func bubbleSort(data []uint16) ([]uint16, error) {
+func bubbleSort(data []int) ([]int, error) {
 	rec, err := GetRecorder(JewlConfig)
 	if err != nil {
 		panic(err)
@@ -46,7 +47,7 @@ func bubbleSort(data []uint16) ([]uint16, error) {
 	return data, nil
 }
 
-const FileLocation = "test.json"
+const FileLocation = "bubble_sort"
 
 var JewlConfig = FileConfig(FileLocation)
 
@@ -57,28 +58,31 @@ func TestFrame(t *testing.T) {
 		panic(err)
 	}
 	err = rec.Frame("TestFrame")
-	sorted, err := bubbleSort([]uint16{5, 1, 6, 4, 3, 7, 8, 9})
+	sorted, err := bubbleSort([]int{5, 1, 6, 4, 3, 7, 8, 9})
 	if err != nil {
 		panic(err)
 	}
 
-	expected := []uint16{1, 3, 4, 5, 6, 7, 8, 9}
+	expected := []int{1, 3, 4, 5, 6, 7, 8, 9}
 	if !reflect.DeepEqual(expected, sorted) {
 		fmt.Println(fmt.Sprintf("Sort result is not as expected: %s", fmt.Sprint(sorted)))
 	}
 	rec.Stop()
 }
 
-//func TestFrame(t *testing.T){
-//    frame := G_Profiler.StartFrame("TestFrame")
-//    sorted := bubbleSort([]uint16{5, 1, 6, 4, 3, 7, 8, 9})
-//    expected := []uint16{1, 3, 4, 5, 6, 7, 8, 9}
-//    if !reflect.DeepEqual(expected, sorted){
-//        fmt.Println(fmt.Sprintf("Sort result is not as expected: %s", fmt.Sprint(sorted)))
-//    }
-//    frame.Stop()
-//    err := G_Profiler.Dump("dump.json")
-//    if err != nil{
-//        panic(err)
-//    }
-//}
+func TestFrameMany(t *testing.T) {
+    rec, err := NewRecorder(JewlConfig)
+	defer rec.Close()
+	if err != nil {
+		panic(err)
+	}
+	err = rec.Frame("TestFrame")
+    for i := 0; i < 10; i++{
+        sorted, err := bubbleSort(rand.Perm(10))
+        if err != nil{
+            panic(err)
+        }
+        println(sorted)
+    }
+	rec.Stop()
+}

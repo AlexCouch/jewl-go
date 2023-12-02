@@ -10,6 +10,9 @@ type RecorderConfigFile struct {
 }
 
 func (f RecorderConfigFile) Clear() error {
+    if _, err := os.Stat(f.path); err != nil{
+        return nil
+    }
 	return os.Remove(f.path)
 }
 
