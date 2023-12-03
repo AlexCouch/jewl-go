@@ -12,12 +12,12 @@ type FrameIndex = int
 // When a frame is on the top of the stack, and a new function creates a frame,
 // that funtion's frame is added here as a `Call`
 type Frame struct {
-	Location  string         `msgpack:"location"`
-	Name      string         `msgpack:"name"`
-	Args      map[string]any `msgpack:"args"`
-	Start     int            `msgpack:"start"`
-	End       int            `msgpack:"end"`
-	Duration  int            `msgpack:"duration"`
-	Calls     []FrameIndex   `msgpack:"calls"`
-	Subframes []FrameIndex   `msgpack:"subframes"`
+	Location  string         
+	Name      string         
+	Args      map[string]any 
+	Start     int           
+	End       int            
+	Duration  int            
+	Calls     []FrameIndex
+	Subframes []FrameIndex
 }
