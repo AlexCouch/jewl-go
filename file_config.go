@@ -7,6 +7,7 @@ import "os"
 // See also: RecorderConfig
 type RecorderConfigFile struct {
 	path string
+    encoder Encoder
 }
 
 func (f RecorderConfigFile) Clear() error {
@@ -44,8 +45,25 @@ func (f RecorderConfigFile) Load() ([]byte, error) {
 	return data, nil
 }
 
-func FileConfig(path string) RecorderConfigFile {
+func FileConfigWithEncoder(path string, encoder Encoder) RecorderConfigFile{
 	return RecorderConfigFile{
 		path: path,
+        encoder: encoder,
 	}
+}
+
+func DefaultEncoder() Encoder{
+    return MsgPackEncoder{}
+}
+
+func FileConfig(path string) RecorderConfigFile {
+    encoder := DefaultEncoder()
+	return RecorderConfigFile{
+		path: path,
+        encoder: encoder,
+	}
+}
+
+func (f RecorderConfigFile) Encoder() Encoder{
+    return f.encoder
 }

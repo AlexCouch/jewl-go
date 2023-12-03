@@ -1,97 +1,12 @@
 package jewl
 
 import (
-	//"encoding/json"
 	"fmt"
-	"os"
 	"path"
 	"runtime"
 	"time"
 
-	"github.com/vmihailenco/msgpack/v5"
 )
-
-// A configuration interface which allows for creating different configuration
-// schemas such as emitting frames to a server or a file
-type RecorderConfig interface {
-	// Load the current state of the recorder
-	Load() ([]byte, error)
-	// Write the current state of the recorder
-	Write([]byte) error
-	// Clears the current project state, if applicable
-	Clear() error
-}
-
-// A stack cache to save the state of the stack so the recorder can keep track of
-// where in the code the program is.
-//
-// This makes it easier for different functions to add new frames to the hierarchy
-type RecorderCache struct {
-	path string
-}
-
-func (r *RecorderCache) Clear() error {
-	if _, err := os.Stat(JewlDir); err == nil {
-		err = os.RemoveAll(JewlDir)
-		if err != nil {
-			return err
-		}
-
-	}
-	return nil
-}
-
-// Save the stack to the given cache path
-func (r *RecorderCache) Save(stack []int) error {
-	if _, err := os.Stat(r.path); err != nil {
-		parent, _ := path.Split(r.path)
-		err = os.MkdirAll(parent, 0700)
-		if err != nil {
-			return err
-		}
-		_, err = os.Create(r.path)
-		if err != nil {
-			return err
-		}
-	}
-	data, err := msgpack.Marshal(stack)
-	if err != nil {
-		return err
-	}
-	//data, err := json.Marshal(stack)
-	//if err != nil{
-	//    return err
-	//}
-	err = os.WriteFile(r.path, data, 0666)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// Load the cache from the given cache path
-func (r *RecorderCache) Load() ([]int, error) {
-	var stack []int
-	if _, err := os.Stat(r.path); err != nil {
-		_, err := os.Create(r.path)
-		if err != nil {
-			return stack, err
-		}
-	}
-	data, err := os.ReadFile(r.path)
-	if err != nil {
-		return stack, err
-	}
-	if len(data) == 0 {
-		return stack, nil
-	}
-	err = msgpack.Unmarshal(data, &stack)
-	//err = json.Unmarshal(data, &stack)
-	//if err != nil{
-	//    return stack, err
-	//}
-	return stack, nil
-}
 
 type location = string
 
@@ -115,8 +30,8 @@ type Recorder struct {
 	config RecorderConfig
 	cache  RecorderCache
 	stack  []FrameIndex
-	Header map[location][]FrameIndex    `msgpack:"header"`
-	Frames []*Frame                     `msgpack:"frames"`
+	Header map[location][]FrameIndex
+	Frames []*Frame
 }
 
 const JewlDir string = ".jewl"
@@ -162,9 +77,7 @@ func (r *Recorder) Close() error {
 	return r.cache.Clear()
 }
 
-/*
-*
-
+/**
 	Get the location (the canonical name) of the current Function
 
 	This will remove the functions leading up to this function so that the actual
@@ -217,8 +130,7 @@ func (r *Recorder) AddData(name string, val any) error {
 }
 
 func (r *Recorder) saveState() {
-	data, err := msgpack.Marshal(r)
-	// data, err := json.MarshalIndent(r, "", "    ")
+	data, err := r.config.Encoder().Encode(r)
 	if err != nil {
 		panic(err)
 	}
@@ -226,7 +138,7 @@ func (r *Recorder) saveState() {
 	if err != nil {
 		panic(err)
 	}
-	err = r.cache.Save(r.stack)
+	err = r.cache.Save(r.stack, r.config.Encoder())
 	if err != nil {
 		panic(err)
 	}
@@ -245,9 +157,7 @@ func (r *Recorder) loadState() error {
 		r.Header = map[string][]FrameIndex{}
 		return nil
 	}
-	var rr Recorder
-	// err = json.Unmarshal(data, &rr)
-	err = msgpack.Unmarshal(data, &rr)
+    rr, err := r.config.Encoder().Decode(data)
 	if err != nil {
 		top := r.stack[len(r.stack)-1]
 		frame := r.Frames[top]
