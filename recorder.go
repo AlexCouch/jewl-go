@@ -174,6 +174,46 @@ func (r *Recorder) loadState() error {
 	return nil
 }
 
+func (r *Recorder) getTopOfStack() *Frame{
+    if len(r.stack) == 0{
+        return nil
+    }
+    fidx := r.stack[len(r.stack)-1]
+	frame := r.Frames[fidx]
+    return frame
+}
+
+func (r *Recorder) addNewFrame(frame *Frame){
+    r.Frames = append(r.Frames, frame)
+    r.Header[frame.Location] = append(r.Header[frame.Location], 0)
+    r.stack = append(r.stack, 0)
+}
+
+func (r *Recorder) addFrame(newFrame *Frame){
+    //If there are no frames on the stack, just add it as a new frame and no subframes
+    frame := r.getTopOfStack()
+    if frame == nil{
+        r.addNewFrame(newFrame)
+        return
+    }
+    sidx := r.pushFrame(newFrame)
+    if frame.Location == newFrame.Location {
+		// This is a subframe since the locations are the same
+		frame.Subframes = append(frame.Subframes, sidx)
+	} else {
+		// The locations are different, so therefore, this is a called function
+		frame.Calls = append(frame.Calls, sidx)
+		// This is now a new function, therefore, must be in the header
+		r.Header[newFrame.Location] = append(r.Header[newFrame.Location], sidx)
+	}
+}
+
+func (r *Recorder) pushFrame(frame *Frame) FrameIndex{
+    sidx := len(r.Frames) - 1
+    r.Frames = append(r.Frames, frame)
+    r.stack = append(r.stack, sidx)
+    return sidx
+}
 /*
 *
 
@@ -195,31 +235,7 @@ func (r *Recorder) Frame(name string) error {
 		Subframes: []FrameIndex{},
 	}
 	defer r.saveState()
-	// If there are no frames on the stack (like at the start of the main function),
-	// then add a new frame to the Frames, Header, and stack
-	if len(r.stack) == 0 {
-		r.Frames = append(r.Frames, sub)
-		sidx := len(r.Frames) - 1
-		r.Header[loc] = append(r.Header[loc], sidx)
-		r.stack = append(r.stack, sidx)
-		return nil
-	}
-	// Otherwise, get the top of the stack, add the frame as a subframe (or call)
-	//  and add this frame to the current stack
-	fidx := r.stack[len(r.stack)-1]
-	frame := r.Frames[fidx]
-	r.Frames = append(r.Frames, sub)
-	sidx := len(r.Frames) - 1
-	r.stack = append(r.stack, sidx)
-	if frame.Location == loc {
-		// This is a subframe since the locations are the same
-		frame.Subframes = append(frame.Subframes, sidx)
-	} else {
-		// The locations are different, so therefore, this is a called function
-		frame.Calls = append(frame.Calls, sidx)
-		// This is now a new function, therefore, must be in the header
-		r.Header[loc] = append(r.Header[loc], sidx)
-	}
+    r.addFrame(sub)
 
 	return nil
 }
