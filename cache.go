@@ -16,8 +16,8 @@ type RecorderCache struct {
 }
 
 func (r *RecorderCache) Clear() error {
-	if _, err := os.Stat(JewlDir); err == nil {
-		err = os.RemoveAll(JewlDir)
+	if _, err := os.Stat(r.path); err == nil {
+		err = os.RemoveAll(r.path)
 		if err != nil {
 			return err
 		}

@@ -1,6 +1,9 @@
 package jewl
 
-import "os"
+import (
+	"os"
+	"path/filepath"
+)
 
 // A file config schema which simply saves the frames to a local file on the machine
 //
@@ -45,9 +48,9 @@ func (f RecorderConfigFile) Load() ([]byte, error) {
 	return data, nil
 }
 
-func FileConfigWithEncoder(path string, encoder Encoder) RecorderConfigFile{
+func FileConfigWithEncoder(name string, encoder Encoder) RecorderConfigFile{
 	return RecorderConfigFile{
-		path: path,
+		path: filepath.Join(JewlDir, name),
         encoder: encoder,
 	}
 }
@@ -56,10 +59,10 @@ func DefaultEncoder() Encoder{
     return MsgPackEncoder{}
 }
 
-func FileConfig(path string) RecorderConfigFile {
+func FileConfig(name string) RecorderConfigFile {
     encoder := DefaultEncoder()
 	return RecorderConfigFile{
-		path: path,
+		path: filepath.Join(JewlDir, name),
         encoder: encoder,
 	}
 }
