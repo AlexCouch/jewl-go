@@ -95,19 +95,21 @@ type recorderError struct {
 	message string
 	loc     string
 	name    string
+    cause   error
 }
 
 // Create a general Recorder Error with a message, location, and frame name
-func RecorderError(message string, loc string, name string) recorderError {
+func RecorderError(message string, loc string, name string, err error) recorderError {
 	return recorderError{
 		message: message,
 		loc:     loc,
 		name:    name,
+        cause:   err,
 	}
 }
 
 func (e recorderError) Error() string {
-	return fmt.Sprintf("%s @ %s for frame %s", e.message, e.loc, e.name)
+    return fmt.Sprintf("%s @ %s for frame %s\n    Caused by: %s", e.message, e.loc, e.name, e.cause.Error())
 }
 
 /*
@@ -118,7 +120,7 @@ func (e recorderError) Error() string {
 func (r *Recorder) AddData(name string, val any) error {
 	loc := getRTFrame()
 	if len(r.stack) == 0 {
-		return RecorderError("Recorder has no frames on the stack", loc, loc)
+		return RecorderError("Recorder has no frames on the stack", loc, loc, nil)
 	}
 	fidx := r.stack[len(r.stack)-1]
 	frame := r.Frames[fidx]
@@ -149,7 +151,7 @@ func (r *Recorder) loadState() error {
 	if err != nil {
 		top := r.stack[len(r.stack)-1]
 		frame := r.Frames[top]
-		return RecorderError("Attempted to load current frame data from save state but failed", frame.Location, frame.Name)
+		return RecorderError("Attempted to load current frame data from save state but failed", frame.Location, frame.Name, err)
 	}
 	if len(data) == 0 {
 		// Early return because there's nothing to append the next frames onto
@@ -159,9 +161,12 @@ func (r *Recorder) loadState() error {
 	}
     rr, err := r.config.Encoder().Decode(data)
 	if err != nil {
-		top := r.stack[len(r.stack)-1]
-		frame := r.Frames[top]
-		return RecorderError("Attempted to load current frame data from save state but failed", frame.Location, frame.Name)
+        if len(r.stack) > 0{
+            top := r.stack[len(r.stack)-1]
+            frame := r.Frames[top]
+            return RecorderError("Attempted to load current frame data from save state but failed", frame.Location, frame.Name, err)
+        }
+        return RecorderError("Failed to load current frame data while stack is empty", "loadState", "nil", err)
 	}
 	r.Frames = rr.Frames
 	r.Header = rr.Header

@@ -8,7 +8,7 @@ import (
 )
 
 func bubbleSort2(data []int, dataOut chan<-[]int, errorChan chan<-error) {
-	rec, err := GetRecorder(JewlConfig)
+	rec, err := GetRecorder(jewlConfig)
 	if err != nil {
 		panic(err)
 	}
