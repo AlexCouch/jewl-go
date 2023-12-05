@@ -2,14 +2,14 @@ package jewl
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"syscall"
-
-	"github.com/vmihailenco/msgpack/v5"
+	//"github.com/vmihailenco/msgpack/v5"
 )
 
 // A stack cache to save the state of the stack so the recorder can keep track of
@@ -32,7 +32,7 @@ func (r *RecorderCache) Clear() error {
 }
 
 // Save the stack to the given cache path
-func (r *RecorderCache) Save(stack []int, encoder Encoder) error {
+func (r *RecorderCache) Save(stack map[gid][]int, encoder Encoder) error {
     //Check if the file exists, and if not, make it
 	if _, err := os.Stat(r.path); err != nil {
 		parent, _ := path.Split(r.path)
@@ -45,8 +45,9 @@ func (r *RecorderCache) Save(stack []int, encoder Encoder) error {
 			return err
 		}
 	}
+    println(fmt.Sprint(stack))
     //Open the file
-    file, err := os.OpenFile(r.path, os.O_WRONLY, 0666)
+    file, err := os.OpenFile(r.path, os.O_WRONLY|os.O_TRUNC, 0666)
     if err != nil{
         return err
     }
@@ -59,7 +60,7 @@ func (r *RecorderCache) Save(stack []int, encoder Encoder) error {
     defer syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
 
     //Marshal the recorder
-    data, err := msgpack.Marshal(stack)
+    data, err := json.Marshal(stack)
 	if err != nil {
 		return err
 	}
@@ -77,7 +78,7 @@ func (r *RecorderCache) Save(stack []int, encoder Encoder) error {
 }
 
 // Load the cache from the given cache path
-func (r *RecorderCache) Load() (stack []int, err error) {
+func (r *RecorderCache) Load() (stack map[gid][]int, err error) {
     //Check if the cache file exists, and if not, make it
     fi, err := os.Stat(r.path)
 	if err != nil {
@@ -97,14 +98,13 @@ func (r *RecorderCache) Load() (stack []int, err error) {
 
     buf := bufio.NewReader(file)
     data := make([]byte, fi.Size())
-    if _, err = buf.Read(data); !errors.Is(err, io.EOF){
-        return 
+    if _, err = buf.Read(data); err != nil && !errors.Is(err, io.EOF){
+        return nil, err
     }
-    println("RecorderCache.Load v:data: " + fmt.Sprint(data))
 	if len(data) == 0 {
 		return stack, nil
 	}
-	if err = msgpack.Unmarshal(data, &stack); err != nil{
+	if err = json.Unmarshal(data, &stack); err != nil{
         return
     }
 	return stack, nil

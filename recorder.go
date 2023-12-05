@@ -1,14 +1,18 @@
 package jewl
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"path"
 	"runtime"
+	"strconv"
 	"time"
 
 )
 
 type location = string
+type gid = int
 
 // A frame recorder which keeps track of where in the program it is,
 //
@@ -29,7 +33,7 @@ type location = string
 type Recorder struct {
 	config RecorderConfig
 	cache  RecorderCache
-	stack  []FrameIndex
+	stack  map[gid][]FrameIndex
 	Header map[location][]FrameIndex
 	Frames []*Frame
 }
@@ -42,6 +46,7 @@ func NewRecorder(config RecorderConfig) (*Recorder, error) {
 			path: path.Join(JewlDir, "cache"),
 		},
 		config: config,
+        stack: map[gid][]FrameIndex{},
 		Header: map[string][]FrameIndex{},
 		Frames: []*Frame{},
 	}
@@ -49,7 +54,7 @@ func NewRecorder(config RecorderConfig) (*Recorder, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = config.Clear()
+    err = config.Clear()
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +70,13 @@ func GetRecorder(config RecorderConfig) (*Recorder, error) {
 			path: ".jewl/cache",
 		},
 		config: config,
+        stack: map[gid][]FrameIndex{},
 	}
-	err := rec.loadState()
+    _, gid, err := getRTFrame()
+    if err != nil{
+        return nil, err
+    }
+	err = rec.loadState(gid)
 	if err != nil {
 		return nil, err
 	}
@@ -83,12 +93,24 @@ func (r *Recorder) Close() error {
 	This will remove the functions leading up to this function so that the actual
 	function being recorded is used
 */
-func getRTFrame() string {
+func getRTFrame() (string, int, error) {
 	pc := make([]uintptr, 10)
+    buf := make([]byte, 32)
+    nn := runtime.Stack(buf, false)
+    buf = buf[:nn]
+    buf, ok := bytes.CutPrefix(buf, []byte("goroutine "))
+    if !ok{
+        return "", 0, errors.New("invalid runtime.Stack output")
+    }
+    i := bytes.IndexByte(buf, ' ')
+    if i < 0{
+        return "", 0, errors.New("invalid runtime.Stack output")
+    }
 	n := runtime.Callers(3, pc)
 	frames := runtime.CallersFrames(pc[:n])
 	frame, _ := frames.Next()
-	return frame.Function
+    gid, err := strconv.Atoi(string(buf[:i]))
+    return frame.Function, gid, err
 }
 
 type recorderError struct {
@@ -118,12 +140,14 @@ func (e recorderError) Error() string {
 	Add a data point to the top (current) frame
 */
 func (r *Recorder) AddData(name string, val any) error {
-	loc := getRTFrame()
+	loc, gid, err := getRTFrame()
+    if err != nil{
+        return err
+    }
 	if len(r.stack) == 0 {
 		return RecorderError("Recorder has no frames on the stack", loc, loc, nil)
 	}
-	fidx := r.stack[len(r.stack)-1]
-	frame := r.Frames[fidx]
+    frame := r.getTopOfStack(gid)
 	frame.Args[name] = val
 
 	r.saveState()
@@ -131,7 +155,26 @@ func (r *Recorder) AddData(name string, val any) error {
 	return nil
 }
 
+func (r *Recorder) getFromStack(goid gid) (*Frame, error){
+	stack, ok := r.stack[goid]
+    if !ok{
+        r.stack[goid] = []FrameIndex{}
+        return nil, nil
+    }
+    fidx := stack[len(stack)-1]
+    frame := r.Frames[fidx]
+    return frame, nil
+}
+
 func (r *Recorder) saveState() {
+    _, gid, err := getRTFrame()
+    if err != nil{
+        panic(err)
+    }
+    top := r.getTopOfStack(gid)
+    if top != nil{
+        println("Saving with top frame:" + top.Name)
+    }
 	data, err := r.config.Encoder().Encode(r)
 	if err != nil {
 		panic(err)
@@ -146,12 +189,11 @@ func (r *Recorder) saveState() {
 	}
 }
 
-func (r *Recorder) loadState() error {
+func (r *Recorder) loadState(goid gid) error {
 	data, err := r.config.Load()
 	if err != nil {
-		top := r.stack[len(r.stack)-1]
-		frame := r.Frames[top]
-		return RecorderError("Attempted to load current frame data from save state but failed", frame.Location, frame.Name, err)
+        top := r.getTopOfStack(goid)
+		return RecorderError("Attempted to load current frame data from save state but failed", top.Location, top.Name, err)
 	}
 	if len(data) == 0 {
 		// Early return because there's nothing to append the next frames onto
@@ -162,9 +204,8 @@ func (r *Recorder) loadState() error {
     rr, err := r.config.Encoder().Decode(data)
 	if err != nil {
         if len(r.stack) > 0{
-            top := r.stack[len(r.stack)-1]
-            frame := r.Frames[top]
-            return RecorderError("Attempted to load current frame data from save state but failed", frame.Location, frame.Name, err)
+            top := r.getTopOfStack(goid)
+            return RecorderError("Attempted to load current frame data from save state but failed", top.Location, top.Name, err)
         }
         return RecorderError("Failed to load current frame data while stack is empty", "loadState", "nil", err)
 	}
@@ -176,32 +217,41 @@ func (r *Recorder) loadState() error {
 		return err
 	}
 	r.stack = stack
+    println(fmt.Sprint(r.stack))
 	return nil
 }
 
-func (r *Recorder) getTopOfStack() *Frame{
+func (r *Recorder) getTopOfStack(goid gid) *Frame{
     if len(r.stack) == 0{
         return nil
     }
-    fidx := r.stack[len(r.stack)-1]
+    stack, ok := r.stack[goid]
+    if !ok{
+        r.stack[goid] = []FrameIndex{}
+        stack = r.stack[goid]
+    }
+    if len(stack) == 0{
+        return nil
+    }
+    fidx := stack[len(r.stack)-1]
 	frame := r.Frames[fidx]
     return frame
 }
 
-func (r *Recorder) addNewFrame(frame *Frame){
+func (r *Recorder) addNewFrame(goid gid, frame *Frame){
     r.Frames = append(r.Frames, frame)
     r.Header[frame.Location] = append(r.Header[frame.Location], 0)
-    r.stack = append(r.stack, 0)
+    r.pushToStack(0, goid)
 }
 
-func (r *Recorder) addFrame(newFrame *Frame){
+func (r *Recorder) addFrame(newFrame *Frame, goid gid){
     //If there are no frames on the stack, just add it as a new frame and no subframes
-    frame := r.getTopOfStack()
+    frame := r.getTopOfStack(goid)
     if frame == nil{
-        r.addNewFrame(newFrame)
+        r.addNewFrame(goid, newFrame)
         return
     }
-    sidx := r.pushFrame(newFrame)
+    sidx := r.pushFrame(goid, newFrame)
     if frame.Location == newFrame.Location {
 		// This is a subframe since the locations are the same
 		frame.Subframes = append(frame.Subframes, sidx)
@@ -213,10 +263,20 @@ func (r *Recorder) addFrame(newFrame *Frame){
 	}
 }
 
-func (r *Recorder) pushFrame(frame *Frame) FrameIndex{
+func (r *Recorder) pushToStack(fidx FrameIndex, goid gid) {
+    stack, ok := r.stack[goid]
+    if !ok{
+        r.stack[goid] = []FrameIndex{}
+        stack = r.stack[goid]
+    }
+    stack = append(stack, fidx)
+    r.stack[goid] = stack
+}
+
+func (r *Recorder) pushFrame(goid gid, frame *Frame) FrameIndex{
     sidx := len(r.Frames) - 1
     r.Frames = append(r.Frames, frame)
-    r.stack = append(r.stack, sidx)
+    r.pushToStack(sidx, goid)
     return sidx
 }
 /*
@@ -230,7 +290,10 @@ func (r *Recorder) pushFrame(frame *Frame) FrameIndex{
 func (r *Recorder) Frame(name string) error {
 	// Step 1. Get the current function
 	start := time.Now().Nanosecond()
-	loc := getRTFrame()
+	loc, gid, err := getRTFrame()
+    if err != nil{
+        return err
+    }
 	sub := &Frame{
 		Location:  loc,
 		Name:      name,
@@ -240,7 +303,7 @@ func (r *Recorder) Frame(name string) error {
 		Subframes: []FrameIndex{},
 	}
 	defer r.saveState()
-    r.addFrame(sub)
+    r.addFrame(sub, gid)
 
 	return nil
 }
@@ -253,17 +316,33 @@ func (r *Recorder) Frame(name string) error {
 */
 func (r *Recorder) Stop() error {
 	end := time.Now().Nanosecond()
+    _, gid, err := getRTFrame()
+    if err != nil{
+        return err
+    }
 	defer r.saveState()
-	err := r.loadState()
+	err = r.loadState(gid)
 	if err != nil {
 		return err
 	}
 
-	fidx := r.stack[len(r.stack)-1]
-	frame := r.Frames[fidx]
+    frame := r.getTopOfStack(gid)
+    if frame == nil{
+        return errors.New("Current stack is empty for gid " + fmt.Sprint(gid))
+    }
 	frame.End = end
 	frame.Duration = end - frame.Start
 
-	r.stack = r.stack[:len(r.stack)-1]
+    r.popStack(gid)
 	return nil
+}
+
+func (r *Recorder) popStack(goid gid) {
+    stack, ok := r.stack[goid]
+    if !ok{
+        return 
+    }
+    stack = stack[:len(r.stack)-1]
+    r.stack[goid] = stack
+
 }

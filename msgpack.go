@@ -1,6 +1,8 @@
 package jewl
 
-import "github.com/vmihailenco/msgpack/v5"
+import (
+	"github.com/vmihailenco/msgpack/v5"
+)
 
 type MsgPackEncoder struct{
 

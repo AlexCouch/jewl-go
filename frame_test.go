@@ -39,11 +39,20 @@ func bubbleSort(data []int) ([]int, error) {
 				data[j] = data[j+1]
 				data[j+1] = temp
 			}
-			rec.Stop()
+			err = rec.Stop()
+            if err != nil{
+                panic(err)
+            }
 		}
-		rec.Stop()
+        err = rec.Stop()
+        if err != nil{
+            panic(err)
+        }
 	}
-	rec.Stop()
+    err = rec.Stop()
+    if err != nil{
+        panic(err)
+    }
 	return data, nil
 }
 
@@ -67,7 +76,10 @@ func TestFrame(t *testing.T) {
 	if !reflect.DeepEqual(expected, sorted) {
 		fmt.Println(fmt.Sprintf("Sort result is not as expected: %s", fmt.Sprint(sorted)))
 	}
-	rec.Stop()
+	err = rec.Stop()
+    if err != nil{
+        panic(err)
+    }
 }
 
 func TestFrameMany(t *testing.T) {
