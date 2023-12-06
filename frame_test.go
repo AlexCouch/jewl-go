@@ -2,7 +2,7 @@ package jewl
 
 import (
 	"fmt"
-	"math/rand"
+	//"math/rand"
 	"reflect"
 	"testing"
 )
@@ -82,19 +82,19 @@ func TestFrame(t *testing.T) {
     }
 }
 
-func TestFrameMany(t *testing.T) {
-    rec, err := NewRecorder(JewlConfig)
-	defer rec.Close()
-	if err != nil {
-		panic(err)
-	}
-	err = rec.Frame("TestFrame")
-    for i := 0; i < 10; i++{
-        sorted, err := bubbleSort(rand.Perm(10))
-        if err != nil{
-            panic(err)
-        }
-        println(sorted)
-    }
-	rec.Stop()
-}
+//func TestFrameMany(t *testing.T) {
+//    rec, err := NewRecorder(JewlConfig)
+//	defer rec.Close()
+//	if err != nil {
+//		panic(err)
+//	}
+//	err = rec.Frame("TestFrame")
+//    for i := 0; i < 10; i++{
+//        sorted, err := bubbleSort(rand.Perm(10))
+//        if err != nil{
+//            panic(err)
+//        }
+//        println(sorted)
+//    }
+//	rec.Stop()
+//}

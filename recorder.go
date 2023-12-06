@@ -70,7 +70,6 @@ func GetRecorder(config RecorderConfig) (*Recorder, error) {
 			path: ".jewl/cache",
 		},
 		config: config,
-        stack: map[gid][]FrameIndex{},
 	}
     _, gid, err := getRTFrame()
     if err != nil{
@@ -225,6 +224,8 @@ func (r *Recorder) getTopOfStack(goid gid) *Frame{
     if len(r.stack) == 0{
         return nil
     }
+    println("Recorder.getTopOfStack v:stack: " + fmt.Sprint(r.stack))
+    println("Recorder.getTopOfStack v:Frames: " + fmt.Sprint(r.Frames))
     stack, ok := r.stack[goid]
     if !ok{
         r.stack[goid] = []FrameIndex{}
@@ -233,7 +234,8 @@ func (r *Recorder) getTopOfStack(goid gid) *Frame{
     if len(stack) == 0{
         return nil
     }
-    fidx := stack[len(r.stack)-1]
+    fidx := stack[len(stack)-1]
+    println("Recorder.getTopOfStack v:fidx: " + fmt.Sprint(fidx))
 	frame := r.Frames[fidx]
     return frame
 }
@@ -251,7 +253,9 @@ func (r *Recorder) addFrame(newFrame *Frame, goid gid){
         r.addNewFrame(goid, newFrame)
         return
     }
+    println("Recorder.addFrame v:topOfStack: " + fmt.Sprint(frame.Name))
     sidx := r.pushFrame(goid, newFrame)
+    println("Recorder.addFrame e:frame.Location == newFrame.Location: " + fmt.Sprint(frame.Location == newFrame.Location))
     if frame.Location == newFrame.Location {
 		// This is a subframe since the locations are the same
 		frame.Subframes = append(frame.Subframes, sidx)
@@ -264,6 +268,7 @@ func (r *Recorder) addFrame(newFrame *Frame, goid gid){
 }
 
 func (r *Recorder) pushToStack(fidx FrameIndex, goid gid) {
+    println("Recorder.pushToStack v:stack: " + fmt.Sprint(r.stack))
     stack, ok := r.stack[goid]
     if !ok{
         r.stack[goid] = []FrameIndex{}
@@ -271,11 +276,12 @@ func (r *Recorder) pushToStack(fidx FrameIndex, goid gid) {
     }
     stack = append(stack, fidx)
     r.stack[goid] = stack
+    println("Recorder.pushToStack v:stack: " + fmt.Sprint(r.stack))
 }
 
 func (r *Recorder) pushFrame(goid gid, frame *Frame) FrameIndex{
-    sidx := len(r.Frames) - 1
     r.Frames = append(r.Frames, frame)
+    sidx := len(r.Frames) - 1
     r.pushToStack(sidx, goid)
     return sidx
 }
@@ -302,6 +308,7 @@ func (r *Recorder) Frame(name string) error {
 		Calls:     []FrameIndex{},
 		Subframes: []FrameIndex{},
 	}
+    println("Recorder.Frame: Adding a new frame @ " + fmt.Sprint(loc))
 	defer r.saveState()
     r.addFrame(sub, gid)
 
@@ -316,6 +323,7 @@ func (r *Recorder) Frame(name string) error {
 */
 func (r *Recorder) Stop() error {
 	end := time.Now().Nanosecond()
+    println("Stopping frame")
     _, gid, err := getRTFrame()
     if err != nil{
         return err
@@ -342,7 +350,10 @@ func (r *Recorder) popStack(goid gid) {
     if !ok{
         return 
     }
-    stack = stack[:len(r.stack)-1]
+    stack_len := len(stack)
+    println("Recorder.popStack v:stack_len: " + fmt.Sprint(stack_len))
+    stack = stack[:stack_len]
     r.stack[goid] = stack
+    println("Recorder.popStack v:stack: " + fmt.Sprint(r.stack))
 
 }

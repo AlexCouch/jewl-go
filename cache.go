@@ -64,6 +64,7 @@ func (r *RecorderCache) Save(stack map[gid][]int, encoder Encoder) error {
 	if err != nil {
 		return err
 	}
+    println("RecorderCache.Write v:data: " + fmt.Sprint(data))
 
     //Buffer the data and flush it
     buf := bufio.NewWriter(file)
@@ -88,7 +89,7 @@ func (r *RecorderCache) Load() (stack map[gid][]int, err error) {
 		}
         fi, err = file.Stat()
 	}
-    file, err := os.OpenFile(r.path, os.O_RDONLY, 0666)
+    file, err := os.OpenFile(r.path, os.O_RDONLY, 0664)
     if err != nil{
         return
     }
@@ -101,11 +102,15 @@ func (r *RecorderCache) Load() (stack map[gid][]int, err error) {
     if _, err = buf.Read(data); err != nil && !errors.Is(err, io.EOF){
         return nil, err
     }
+    println("RecorderCache.Load v:data: " + fmt.Sprint(string(data)))
 	if len(data) == 0 {
 		return stack, nil
 	}
 	if err = json.Unmarshal(data, &stack); err != nil{
+        println("Could not unmarshal cache data")
         return
     }
+    println("RecorderCache.Load v:stack: " + fmt.Sprint(stack))
+    println("RecorderCache.Load v:err: " + fmt.Sprint(err))
 	return stack, nil
 }
